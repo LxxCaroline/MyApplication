@@ -26,16 +26,26 @@ import libcore.io.DiskLruCache;
  */
 public class ImageCache {
 
-//    private final String TAG = "RequestQueue-ImageC";
+    private final String TAG = "ImageC";
     private LruCache<String, Bitmap> mLruCache;
     private DiskLruCache mDiskCache;
 
     public ImageCache(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1) {
+            int size = (int) Runtime.getRuntime().maxMemory() / 5;
+            Log.d(TAG, "runtime max memory : " + size);
             mLruCache = new LruCache<String, Bitmap>((int) Runtime.getRuntime().maxMemory() / 5) {
                 @Override
                 protected int sizeOf(String key, Bitmap value) {
-                    return value.getRowBytes() * value.getHeight();
+                    int size = value.getRowBytes() * value.getHeight();
+                    Log.d(TAG, "size of bitmap : " + size);
+                    return size;
+                }
+
+                @Override
+                protected void entryRemoved(boolean evicted, String key, Bitmap oldValue, Bitmap newValue) {
+                    super.entryRemoved(evicted, key, oldValue, newValue);
+                    Log.d("tag", "remove==============key:" + key + " is removed.   evicted:" + evicted);
                 }
             };
         }
@@ -53,11 +63,11 @@ public class ImageCache {
     // TODO: 2016/4/19 防止并发
     //访问cache。读取数据，先从LruCache中读取，若没有，则读取DiskLruCache，读出的entry带有bitmap
     public Entry get(String key) {
-//        Log.d(TAG, "get the data from cache");
+        Log.d(TAG, "get the data from cache");
         Entry entry = new Entry();
         Bitmap data = mLruCache.get(key);
         if (data != null) {
-//            Log.d("tag", "get the data from LruCache");
+            Log.d("tag", "get the data from LruCache");
             entry.bitmap = data;
             return entry;
         }
@@ -65,15 +75,16 @@ public class ImageCache {
             DiskLruCache.Snapshot snapshot = mDiskCache.get(key);
             if (snapshot != null) {
                 InputStream stream = snapshot.getInputStream(0);
-//                Log.d(TAG, "get the data from DiskLruCache");
+                Log.d(TAG, "get the data from DiskLruCache");
                 entry.bitmap = BitmapFactory.decodeStream(stream);
+                mLruCache.put(key,entry.bitmap);
                 return entry;
             }
         } catch (IOException e) {
-//            Log.d(TAG, "Error when get the data from DiskLruCache");
+            Log.d(TAG, "Error when get the data from DiskLruCache");
             e.printStackTrace();
         }
-//        Log.d(TAG, "no data from DiskLruCache");
+        Log.d(TAG, "no data from DiskLruCache");
         return null;
     }
 
@@ -86,10 +97,10 @@ public class ImageCache {
                 if (entry.data != null && entry.data.length != 0) {
                     Bitmap bitmap = BitmapFactory.decodeByteArray(entry.data, 0, entry.data.length);
                     if (bitmap != null) {
-//                        Log.d(TAG, "put the bitmap into LruCache");
+                        Log.d(TAG, "put the bitmap into LruCache");
                         mLruCache.put(key, bitmap);
                     } else {
-//                        Log.d(TAG, "Error when decode byte array from byte");
+                        Log.d(TAG, "Error when decode byte array from byte");
                     }
                     stream.write(entry.data);
                     editor.commit();
